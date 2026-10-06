@@ -55,6 +55,10 @@ pub struct CheckArgs {
     #[arg(long)]
     pub config: Option<PathBuf>,
 
+    /// Request timeout for the RPC client in seconds.
+    #[arg(long = "rpc-timeout", default_value = "10")]
+    pub rpc_timeout: u64,
+
     /// Directory containing fixture files.
     #[arg(long = "fixtures-dir", default_value = "fixtures")]
     pub fixtures_dir: PathBuf,
@@ -67,6 +71,10 @@ pub struct CheckArgs {
     #[arg(long)]
     pub json: bool,
 
+    /// Write the rendered report to this path, in addition to stdout.
+    #[arg(long, value_name = "PATH")]
+    pub output: Option<PathBuf>,
+
     /// Include skip reasons in Markdown/terminal output and populate the JSON report's verbose field.
     #[arg(long)]
     pub verbose: bool,
@@ -74,6 +82,10 @@ pub struct CheckArgs {
     /// Shorten terminal-format output to a single status line.
     #[arg(long)]
     pub quiet: bool,
+
+    /// Maximum number of concurrent network requests for RPC/Soroban fixtures.
+    #[arg(long, default_value_t = 4)]
+    pub max_concurrency: u32,
 }
 
 #[derive(Debug, Parser)]
@@ -117,4 +129,56 @@ pub struct ReportArgs {
     /// Output format to render the stored report as.
     #[arg(long, value_enum, default_value_t = OutputFormat::Markdown)]
     pub format: OutputFormat,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn verify_cli() {
+        use clap::CommandFactory;
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn test_max_concurrency_flag_default() {
+        let cli = Cli::parse_from(["stellar-canary", "check"]);
+        if let Command::Check(args) = cli.command {
+            assert_eq!(args.max_concurrency, 4);
+        } else {
+            panic!("Expected Check command");
+        }
+    }
+
+    #[test]
+    fn test_max_concurrency_flag_custom() {
+        let cli = Cli::parse_from(["stellar-canary", "check", "--max-concurrency", "10"]);
+        if let Command::Check(args) = cli.command {
+            assert_eq!(args.max_concurrency, 10);
+        } else {
+            panic!("Expected Check command");
+        }
+    }
+
+    #[test]
+    fn test_output_flag_defaults_to_none() {
+        let cli = Cli::parse_from(["stellar-canary", "check"]);
+        if let Command::Check(args) = cli.command {
+            assert_eq!(args.output, None);
+        } else {
+            panic!("Expected Check command");
+        }
+    }
+
+    #[test]
+    fn test_output_flag_takes_a_path() {
+        let cli = Cli::parse_from(["stellar-canary", "check", "--output", "result.json"]);
+        if let Command::Check(args) = cli.command {
+            assert_eq!(args.output, Some(PathBuf::from("result.json")));
+        } else {
+            panic!("Expected Check command");
+        }
+    }
 }

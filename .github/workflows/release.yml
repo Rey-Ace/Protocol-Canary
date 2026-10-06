@@ -4,25 +4,47 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  verify:
-    name: Verify release build
+  release:
+    name: Verify and release build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust toolchain
         run: rustup show
+
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: cargo test
         run: cargo test --workspace
 
       - name: cargo build --release
         run: cargo build --workspace --release
+
+      - name: Prepare assets
+        run: |
+          mkdir -p dist
+          cp target/release/stellar-canary dist/stellar-canary-linux-x86_64
+          cd dist
+          sha256sum stellar-canary-linux-x86_64 > SHA256SUMS
+
+      - name: Upload release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: |
+            dist/stellar-canary-linux-x86_64
+            dist/SHA256SUMS
+
